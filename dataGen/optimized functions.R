@@ -78,8 +78,10 @@ get.length=function(user.coords){
 }
 #-----------------------
 #get pa, ua, lroad
-calc.stuff=function(x,y,uc,coef2,grid1){
-  user.coords=unique(data.frame(x=c(uc$x[1],x,uc$x[2]),y=c(uc$y[1],y,uc$y[2])))
+#allow uc to be different from start-end point
+calc.stuff=function(x,y,uc,coef2,grid1,start.end=uc){
+  user.coords=unique(data.frame(x=c(start.end$x[1],x,start.end$x[2]),
+                                y=c(start.end$y[1],y,start.end$y[2])))
   
   #get nearest distance
   grid1$dist=get.dist(user.coords,grid1)

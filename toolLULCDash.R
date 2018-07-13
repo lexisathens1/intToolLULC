@@ -18,16 +18,19 @@ ui <- dashboardPage(
   dashboardSidebar(
     radioButtons(inputId = "landscape",
                  label = "Landscape",
-                 choices = c(1, 2),
+                 choices = c(1, 3),
                  selected = 1),
     textInput("road.cost", label="Road cost (per km)", value=1),
     textInput("pa.cost", label="Cost of deforesting PA (per 1 km2 pixel)", value='1'),
     textInput("forest.cost", label="Cost of deforesting forested UA (per 1 km2 pixel)", value='1'),
-    textInput("protect", label="Protective effect of PA in reducing deforestation (%)", value='0.3'),
+    sliderInput("protect", label="Protective effect of PA in reducing deforestation (%)", 
+                min=0, max=100, value=0.3, step=0.1, ticks=T),
     conditionalPanel(
         condition = "input.tipo == 'user-defined'",
         textInput("x", label="x coordinates", value='20,20',placeholder='0-100'),
-        textInput("y", label="y coordinates", value='10,90',placeholder='0-100')
+        textInput("y", label="y coordinates", value='10,90',placeholder='0-100'),
+        div("Use commas to specify more than one coordinate (e.g. 3.75, 5.25)", 
+            class="form-group shiny-input-container")
     ),
     radioButtons(inputId = "tipo", 
                  label = "Road layout:", 
@@ -66,9 +69,9 @@ ui <- dashboardPage(
 # input$road.cost='1'
 # input$pa.cost='2'
 # input$forest.cost='1'
-# input$tipo='straight line'
+# input$tipo='optimized'
 # input$protect='1'
-# input$landscape=1
+# input$landscape=3
 
 # Define server logic 
 server <- function(input, output) {
@@ -87,7 +90,8 @@ server <- function(input, output) {
     end <- as.numeric(end)
     
     #get distance to urban centers
-    uc=data.frame(x=c(20,20),y=c(20,90),type=rep("Urban Center", 2))
+    uc=read.csv('data/uc.csv')
+    uc=uc[uc$landscape==l,]
     dist=numeric()
     for (i in 1:nrow(uc)){
       x2=(grid1$x-uc$x[i])^2
@@ -111,10 +115,11 @@ server <- function(input, output) {
     end <- landscapeList()[[4]]
     uc <- landscapeList()[[5]]
     
-    road.cost=as.numeric(input$road.cost) #per length of road
-    pa.cost=as.numeric(input$pa.cost) #per area of deforested pa
-    forest.cost=as.numeric(input$forest.cost) #per area of deforested land
-    protect=as.numeric(input$protect)/100 #% of deforestation probability
+    #If input is empty or non numeric, make them zero
+    road.cost=check.input(input$road.cost) #per length of road
+    pa.cost=check.input(input$pa.cost) #per area of deforested pa
+    forest.cost=check.input(input$forest.cost) #per area of deforested land
+    protect=check.input(input$protect)/100 #% of deforestation probability
     
     str.coords <- user.coords <- data.frame(x=c(start[1],end[1]),y=c(start[2],end[2]))
     user.grid <- grid1
@@ -146,10 +151,6 @@ server <- function(input, output) {
                               coef1['dist_uc']*dist_uc+
                               coef1['dist_road:dist_uc']*dist_road*dist_uc))
     user.grid$prob=def.prob(user.grid, coef1)
-    
-    # tuning up the deforestation on pixels on the road
-    # cond <- user.grid$dist <= 1
-    # user.grid$prob[cond] <- max(user.grid$prob)*1.5
     
     #get length of road
     user.length <- get.length(user.coords)
@@ -185,7 +186,7 @@ server <- function(input, output) {
       geom_point(data = user.grid2, aes(x = x, y = y, colour = prob), size = 1, alpha = 0.5) +
       scale_colour_continuous(low = "#ffcccc", high = "#ff0000",
                               name = 'Probability\nof deforestation') +
-      geom_point(data = uc, aes(x = x, y = y, pch = type), size = 5) +
+      geom_point(data = uc, aes(x = x, y = y, pch = type), size = 5, colour="blue") +
       scale_shape_manual(values=10, name='') +
       coord_fixed() + theme_bw(base_size = 14)
     

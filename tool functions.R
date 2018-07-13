@@ -106,3 +106,12 @@ def.prob <- function (grid1, coef1) {
             coef1['dist_road:dist_uc']*grid1$dist_road*grid1$dist_uc)
   tmp/(1+tmp)
 }
+#------------------------
+#if input is empty or non numeric, make them zero
+check.input <- function (x) {
+  x <- as.numeric(x)
+  if (length(x)==0 | is.na(x)) {
+    x <- 0
+  }
+  return(x)
+}
