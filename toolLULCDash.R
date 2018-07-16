@@ -18,13 +18,13 @@ ui <- dashboardPage(
   dashboardSidebar(
     radioButtons(inputId = "landscape",
                  label = "Landscape",
-                 choices = c(1, 3),
+                 choices = c(1, 2),
                  selected = 1),
     textInput("road.cost", label="Road cost (per km)", value=1),
     textInput("pa.cost", label="Cost of deforesting PA (per 1 km2 pixel)", value='1'),
     textInput("forest.cost", label="Cost of deforesting forested UA (per 1 km2 pixel)", value='1'),
     sliderInput("protect", label="Protective effect of PA in reducing deforestation (%)", 
-                min=0, max=100, value=0.3, step=0.1, ticks=T),
+                min=0, max=100, value=30, step=0.5, ticks=T),
     conditionalPanel(
         condition = "input.tipo == 'user-defined'",
         textInput("x", label="x coordinates", value='20,20',placeholder='0-100'),

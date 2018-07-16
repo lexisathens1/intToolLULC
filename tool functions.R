@@ -94,7 +94,7 @@ get.cost=function(grid1, road.cost, pa.cost, forest.cost, protect, rd.length){
   ecost=list(pa.cost=pa.cost*tmp$d.pa*(1-protect),
              road.cost=road.cost*rd.length,
              forest.cost=forest.cost*tmp$d.ua,
-             d.pa.prop=tmp$d.pa.prop,
+             d.pa.prop=tmp$d.pa.prop*(1-protect),
              d.ua.prop=tmp$d.ua.prop)
   return(ecost)
 }

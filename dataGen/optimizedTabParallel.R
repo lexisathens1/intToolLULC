@@ -11,13 +11,13 @@ set.seed(1)
 
 # setwd('U:\\independent studies\\interactive tools\\conservation tool')
 source('dataGen/optimized functions.R')
-grid1=read.csv('dataGen/fakeData3.csv',as.is=T)
+grid1=read.csv('dataGen/fakeLayout2.csv',as.is=T)
 coef1=read.csv('data/glm table.csv',as.is=T)
 coef2=coef1[,'Estimate']
 names(coef2)=coef1$X
 
 #get distance to urban centers
-uc=data.frame(x=c(25,85,90),y=c(20,75,85))
+uc=data.frame(x=c(10,90),y=c(10,90))
 dist=numeric()
 for (i in 1:nrow(uc)){
   x2=(grid1$x-uc$x[i])^2
@@ -29,7 +29,7 @@ cond.pa=grid1$tipo=='PA'
 cond.ua=grid1$tipo=='Forest'
 
 #get all combinations of road routes
-roads=data.matrix(read.csv('dataGen/comboCoord3.csv',as.is=T))
+roads=data.matrix(read.csv('dataGen/comboCoord2.csv',as.is=T))
 nroads=nrow(roads)
 
 #progress bar
@@ -49,4 +49,4 @@ fimDf <- foreach (i=1:nroads, .combine = rbind, .options.snow=opts) %dopar% {
 roads1 <- cbind(id=1:nroads, roads)
 roads1 <- dplyr::left_join(as.data.frame(roads1), fimDf)
 head(roads1)
-write.csv(roads1,'dataGen/optimized3a.csv',row.names=F)
+write.csv(roads1,'dataGen/optimized2.csv',row.names=F)
