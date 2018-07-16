@@ -1,10 +1,10 @@
 x,y,type,landscape
-20,20,Urban Center,1
-20,90,Urban Center,1
+20,20,Urban Center,2
+20,90,Urban Center,2
 5,5,Urban Center,3b
 90,90,Urban Center,3b
 25,20,Urban Center,3
 85,75,Urban Center,3
 90,85,Urban Center,3
-10,10,Urban Center,2
-90,90,Urban Center,2
+10,10,Urban Center,1
+90,90,Urban Center,1
