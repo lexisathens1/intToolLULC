@@ -41,8 +41,22 @@ ui <- dashboardPage(
     
     dashboardBody(
       # h1("Determining the optimal location of roads"),
-      p("Some explanations here..."),
-      p("PA = Protected forested Area; UA = Unprotected forested Area"),
+      p("Connecting two places using a road is not always straightforward. Roads 
+        can be major driver to tropical deforestation: e.g. direct destruction, 
+        degradation by change of environment and facilition of other human activities 
+        in the forests. Close proximity of a forest patch to the road and to the 
+        population center often result in higher probability of deforestation. And
+        this is how we model the impact of roads in this app, which enables user to 
+        see how road layouts across hypothethical landscapes can impact the forests.
+        An optimal road layout is not only a function of road cost, but also a 
+        function of how much we value the protected and unprotected forests. "),
+      p("The data used in the statistical model underlying this app is provided by
+        the Brazilian deforestation monitoring program PRODES at 
+        http://www.dpi.inpe.br/prodesdigital/prodes.php. In particular, the remote 
+        sensing image at the BR-364 road segment between the cities of Feijo and 
+        Manoel Urbano (Acre) is used. As such, the outcome of the model, and the 
+        calculations involved in this app may not be applicable to other localities."),
+      p("Abbreviations: PA = Protected forested Area; UA = Unprotected forested Area"),
       fluidRow(
         column(width = 4,
                infoBoxOutput("rdLength", width = NULL),
