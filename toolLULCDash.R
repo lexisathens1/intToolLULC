@@ -1,9 +1,10 @@
 rm(list=ls(all=TRUE))
-# Shiny app for exploring health facility distributions
+# Shiny app for exploring optimal road layouts
 
 library(shiny)
 library(shinydashboard)
 library(ggplot2)
+library(microbenchmark) #for profiling
 
 source('tool functions.R')
 tmp=read.csv('data/glm table.csv',as.is=T)
@@ -18,64 +19,90 @@ ui <- dashboardPage(
   dashboardSidebar(
     radioButtons(inputId = "landscape",
                  label = "Landscape",
-                 choices = c(1, 2),
-                 selected = 1),
+                 choices = c('default','user-defined'),
+                 selected = 'default'),
+    conditionalPanel(
+      condition = "input.landscape == 'user-defined'",
+      fluidRow(
+        column(6,
+               textInput("UC1", label="UC1 coords", value='20,20',placeholder='x,y')
+        ),
+        column(6,
+               textInput("UC2", label="UC2 coords", value='20,90',placeholder='x,y')
+        )
+      ), #end urban center (UC) fluidRow
+      fluidRow(
+        column(6,
+               textInput("PAx", label="PA x coords", value='0,40,40,0',placeholder='0-100')
+        ),
+        column(6,
+               textInput("PAy", label="PA y coords", value='80,80,30,30',placeholder='0-100')
+        )
+      ), #end PA fluidRow
+      fluidRow(
+        column(6,
+               textInput("UAx", label="UA x coords", value='40,90,40',placeholder='0-100')
+        ),
+        column(6,
+               textInput("UAy", label="UA y coords", value='80,80,30',placeholder='0-100')
+        )
+      ) #end UA fluidRow
+    ), #end condPanel
     textInput("road.cost", label="Road cost (per km)", value=1),
     textInput("pa.cost", label="Cost of deforesting PA (per 1 km2 pixel)", value='1'),
     textInput("forest.cost", label="Cost of deforesting forested UA (per 1 km2 pixel)", value='1'),
     sliderInput("protect", label="Protective effect of PA in reducing deforestation (%)", 
                 min=0, max=100, value=30, step=0.5, ticks=T),
-    conditionalPanel(
-        condition = "input.tipo == 'user-defined'",
-        textInput("x", label="x coordinates", value='20,20',placeholder='0-100'),
-        textInput("y", label="y coordinates", value='10,90',placeholder='0-100'),
-        div("Use commas to specify more than one coordinate (e.g. 3.75, 5.25)", 
-            class="form-group shiny-input-container")
-    ),
     radioButtons(inputId = "tipo", 
                  label = "Road layout:", 
                  choices = c('straight line', 'user-defined','optimized'),
-                 selected='straight line')
-    
+                 selected='straight line'),
+    conditionalPanel(
+      condition = "input.tipo == 'user-defined'",
+      textInput("x", label="x coordinates", value='20,20',placeholder='0-100'),
+      textInput("y", label="y coordinates", value='10,90',placeholder='0-100'),
+      div("Use commas to specify more than one coordinate (e.g. 3.75, 5.25)", 
+          class="form-group shiny-input-container")
+    )
   ),
-    
-    dashboardBody(
-      p("Roads are a major driver of tropical deforestation and determining the best
-        route to connect two places with a road is not trivial given that proximity
-        to the road and to the population center often result in higher probability of
-        deforestation."),
-      p("In this tool, users can explore the implications of different road layouts
-        on road cost and deforestation of protected areas (PA) and unprotected areas
-        (UA). An optimal road layout depends not only on road cost but also on how
-        forests in these areas are valued."),
-      p("Disclaimer: The statistical model that underlies this tool was fitted to 
-        deforestation data, provided by the Brazilian deforestation monitoring program
-        PRODES, from the BR-364 road segment between the cities of Feijo and Manoel
-        Urbano (Acre). As such, the outcomes of the model and the calculations involved
-        in this app may not be applicable to other localities. Also, we assume that there
-        is a causal relationship between deforestation and these distance variables and
-        that the estimated relationships do not change for different road layouts."),
-      p("Abbreviations: PA = Protected forested Area; UA = Unprotected forested Area"),
-      fluidRow(
-        column(width = 4,
-               infoBoxOutput("rdLength", width = NULL),
-               infoBoxOutput("paDef", width = NULL),
-               infoBoxOutput("forDef", width = NULL),
-               infoBoxOutput("costs", width = NULL)
-        ),
-        column(
-          width = 8,
-          box(
-            title = "Proposed route",
-            width = NULL,
-            status = "primary",
-            solidHeader = T,
-            plotOutput("LULC", height = "600px")
-          )
+  
+  dashboardBody(
+    p("Roads are a major driver of tropical deforestation and determining the best
+      route to connect two places with a road is not trivial given that proximity
+      to the road and to the population center often result in higher probability of
+      deforestation."),
+    p("In this tool, users can explore the implications of different road layouts
+      on road cost and deforestation of protected areas (PA) and unprotected areas
+      (UA). An optimal road layout depends not only on road cost but also on how
+      forests in these areas are valued."),
+    p("Abbreviations: PA = Protected forested Area; UA = Unprotected forested Area"),
+    fluidRow(
+      column(width = 4,
+             infoBoxOutput("rdLength", width = NULL),
+             infoBoxOutput("paDef", width = NULL),
+             infoBoxOutput("forDef", width = NULL),
+             infoBoxOutput("costs", width = NULL)
+      ),
+      column(
+        width = 8,
+        box(
+          title = "Proposed route",
+          width = NULL,
+          status = "primary",
+          solidHeader = T,
+          plotOutput("LULC", height = "600px")
         )
       )
+    ),
+    p("Disclaimer: The statistical model that underlies this tool was fitted to 
+      deforestation data, provided by the Brazilian deforestation monitoring program
+      PRODES, from the BR-364 road segment between the cities of Feijo and Manoel
+      Urbano (Acre). As such, the outcomes of the model and the calculations involved
+      in this app may not be applicable to other localities. Also, we assume that there
+      is a causal relationship between deforestation and these distance variables and
+      that the estimated relationships do not change for different road layouts.")
     )
-)
+    )
 
 # Input list for debug
 # input=list();
@@ -90,21 +117,63 @@ ui <- dashboardPage(
 server <- function(input, output) {
   # Load data based on landscape
   landscapeList <- reactive({
-    l <- as.numeric(input$landscape)
-    optimFile <- paste('data/optimized', l, '.csv', sep="")
-    gridFile <- paste('data/grid', l, '.csv', sep="")
-    optim1 <- read.csv(optimFile,as.is=T)
-    grid1 <- read.csv(gridFile,as.is=T)
+    #l <- as.numeric(input$landscape)
+    #optimFile <- paste('data/optimized', l, '.csv', sep="")
+    #gridFile <- paste('data/grid', l, '.csv', sep="")
+    #optim1 <- read.csv(optimFile,as.is=T)
+    #grid1 <- read.csv(gridFile,as.is=T)
     
+    if (input$landscape=='default'){ #landscape 1
+      #get PA,UA shapes
+      grid1 <- read.csv("data/grid1.csv", as.is=T)
+      
+      #get urban center coords
+      uc=read.csv('data/uc.csv')
+      uc=uc[uc$landscape==1,]
+      
+      #optimize
+      optim1 <- read.csv("data/optimized1.csv", as.is=T)
+    } else { #user-defined landscape
+      #get PA,UA shapes
+      grid1=expand.grid(x=1:100,y=1:100); grid1$tipo=NA
+      PAx=as.numeric(unlist(strsplit(input$PAx,split=',')))
+      PAy=as.numeric(unlist(strsplit(input$PAy,split=',')))
+      if (length(PAx)==length(PAy)){
+        PA.coords=data.frame(PAx=PAx,PAy=PAy)
+      }
+      UAx=as.numeric(unlist(strsplit(input$UAx,split=',')))
+      UAy=as.numeric(unlist(strsplit(input$UAy,split=',')))
+      if (length(UAx)==length(UAy)){
+        UA.coords=data.frame(UAx=UAx,UAy=UAy)
+      }
+      grid1$tipo=define.landscape(grid1,PA.coords,UA.coords)
+      
+      #get urban center coords
+      UC1=as.numeric(unlist(strsplit(input$UC1,split=',')))
+      UC2=as.numeric(unlist(strsplit(input$UC2,split=',')))
+      if(length(UC1)==2 & length(UC2)==2){
+        uc=data.frame(x=c(UC1[1],UC2[1]),y=c(UC1[2],UC2[2]))
+        uc$type="Urban Center"
+        uc$landscape=2
+      }
+      
+      #optimize
+      optim1=1 #...
+    }
+    
+    
+    #get urban center coords
+    #why is this needed?
     startEnd <- read.csv('data/startEnd.csv')
-    start <- startEnd[startEnd$layout == l, c("startX", "startY")]
+    start <- startEnd[startEnd$layout == 1, c("startX", "startY")]
     start <- as.numeric(start)
-    end <- startEnd[startEnd$layout == l, c("endX", "endY")]
+    end <- startEnd[startEnd$layout == 1, c("endX", "endY")]
     end <- as.numeric(end)
     
+    
     #get distance to urban centers
-    uc=read.csv('data/uc.csv')
-    uc=uc[uc$landscape==l,]
+    #uc=read.csv('data/uc.csv')
+    #uc=uc[uc$landscape==2,]
     dist=numeric()
     for (i in 1:nrow(uc)){
       x2=(grid1$x-uc$x[i])^2
@@ -217,10 +286,11 @@ server <- function(input, output) {
     L <- list(main.plot=res, rd.len.inc=rd.len.inc, ecost=ecost)
     L
   }
-    
+  
   )
   
   output$LULC <- renderPlot(outList()$main.plot)
+  
   output$rdLength <- renderInfoBox({
     infoBox(
       "Road Length Increased",

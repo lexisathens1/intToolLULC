@@ -1,4 +1,12 @@
 #-------------------
+#define landscape
+define.landscape=function(grid1,PA.coords,UA.coords){
+  condPA=as.vector(pnt.in.poly(grid1[,1:2],PA.coords)[3]==1)
+  condUA=as.vector(pnt.in.poly(grid1[,1:2],UA.coords)[3]==1)
+  grid1$tipo=ifelse(condPA,"PA",ifelse(condUA,"Forest","Pasture"))
+  return(grid1$tipo)
+}
+
 #get nearest distance
 get.dist=function(user.coords,grid1){
   dist.mat=matrix(NA,nrow(user.coords)-1,nrow(grid1))
