@@ -131,8 +131,17 @@ server <- function(input, output) {
       uc=read.csv('data/uc.csv')
       uc=uc[uc$landscape==1,]
       
+      #get rid of this later
+      startEnd <- read.csv('data/startEnd.csv')
+      start <- startEnd[startEnd$layout == 1, c("startX", "startY")]
+      start <- as.numeric(start)
+      end <- startEnd[startEnd$layout == 1, c("endX", "endY")]
+      end <- as.numeric(end)
+      
       #optimize
       optim1 <- read.csv("data/optimized1.csv", as.is=T)
+      #optim1 <- 1
+      
     } else { #user-defined landscape
       #get PA,UA shapes
       grid1=expand.grid(x=1:100,y=1:100); grid1$tipo=NA
@@ -155,25 +164,14 @@ server <- function(input, output) {
         uc=data.frame(x=c(UC1[1],UC2[1]),y=c(UC1[2],UC2[2]))
         uc$type="Urban Center"
         uc$landscape=2
+        start=as.numeric(uc[1,1:2])
+        end=as.numeric(uc[2,1:2])
       }
       
       #optimize
       optim1=1 #...
     }
     
-    
-    #get urban center coords
-    #why is this needed?
-    startEnd <- read.csv('data/startEnd.csv')
-    start <- startEnd[startEnd$layout == 1, c("startX", "startY")]
-    start <- as.numeric(start)
-    end <- startEnd[startEnd$layout == 1, c("endX", "endY")]
-    end <- as.numeric(end)
-    
-    
-    #get distance to urban centers
-    #uc=read.csv('data/uc.csv')
-    #uc=uc[uc$landscape==2,]
     dist=numeric()
     for (i in 1:nrow(uc)){
       x2=(grid1$x-uc$x[i])^2
@@ -181,11 +179,6 @@ server <- function(input, output) {
       dist=cbind(dist,sqrt(x2+y2))
     }
     grid1$dist_uc=apply(dist,1,min)
-    
-    #points
-    # pt <- data.frame(x=c(start[1], end[1]), y=c(start[2], end[2]),
-    #                  type=c("End Point"))
-    # pt <- rbind(pt, uc)
     
     L <- list(optim1, grid1, start, end, uc)
   })
@@ -285,9 +278,7 @@ server <- function(input, output) {
     
     L <- list(main.plot=res, rd.len.inc=rd.len.inc, ecost=ecost)
     L
-  }
-  
-  )
+  })
   
   output$LULC <- renderPlot(outList()$main.plot)
   
