@@ -1,4 +1,45 @@
 #-------------------
+#optimize route with single midpoint
+optim.route=function(grid1,uc,coef1){
+  #optimize midpoint
+  x=seq(from=0,to=100,by=10)
+  y=seq(from=0,to=100,by=10)
+  midpoint=expand.grid(x=x,y=y)
+  midpoint$l.road=midpoint$d.pa=midpoint$d.ua=NA
+  
+  #get length of road
+  for(i in 1:nrow(midpoint)){
+    #distance from uc1 to midpoint
+    x2=(midpoint$x[i]-uc[1,'x'])^2
+    y2=(midpoint$y[i]-uc[1,'y'])^2
+    uc1.mid=sqrt(x2+y2) #length of leg1
+    
+    #distance from uc2 to midpoint
+    x2=(midpoint$x[i]-uc[2,'x'])^2
+    y2=(midpoint$y[i]-uc[2,'y'])^2
+    uc2.mid=sqrt(x2+y2) #length of leg2
+    
+    #total distance of road
+    midpoint$l.road[i]=uc1.mid+uc2.mid
+  }
+  
+  grid1$dist_road=NA; grid1$prob=NA
+  user.coords=data.frame(x=c(uc[1,'x'],0,uc[2,'x']), #fill center with dummy var
+                         y=c(uc[1,'y'],0,uc[2,'y']))
+  
+  for(i in 1:nrow(midpoint)){
+    #get dist to road
+    user.coords[2,]=c(midpoint$x[i],midpoint$y[i]) #fill midpoint
+    grid1$dist_road=get.dist(user.coords,grid1)
+    
+    #get deforestation prob
+    grid1$prob=def.prob(grid1,coef1)
+    midpoint[i,c('d.ua','d.pa')]=calc.deforest(grid1)[c('d.ua','d.pa')]
+  }
+  
+  return(midpoint) #returns optimal midpoint
+}
+
 #define landscape
 define.landscape=function(grid1,PA.coords,UA.coords){
   condPA=as.vector(pnt.in.poly(grid1[,1:2],PA.coords)[3]==1)

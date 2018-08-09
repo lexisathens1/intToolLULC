@@ -6,6 +6,7 @@ library(shinydashboard)
 library(ggplot2)
 library(microbenchmark) #for profiling
 
+setwd("~/Documents/UF/Valle Lab/Amazon Simulation/intToolLULC")
 source('tool functions.R')
 tmp=read.csv('data/glm table.csv',as.is=T)
 coef1=tmp[,'Estimate']
@@ -59,8 +60,16 @@ ui <- dashboardPage(
                  selected='straight line'),
     conditionalPanel(
       condition = "input.tipo == 'user-defined'",
-      textInput("x", label="x coordinates", value='20,20',placeholder='0-100'),
-      textInput("y", label="y coordinates", value='10,90',placeholder='0-100'),
+      fluidRow(
+        column(6,
+               textInput("x", label="x coords", value='50,50',placeholder='0-100')
+        ),
+        column(6,
+               textInput("y", label="y coords", value='20,90',placeholder='0-100')
+        )
+      ), #end road fluidRow
+      #textInput("x", label="x coordinates", value='50,50',placeholder='0-100'),
+      #textInput("y", label="y coordinates", value='20,90',placeholder='0-100'),
       div("Use commas to specify more than one coordinate (e.g. 3.75, 5.25)", 
           class="form-group shiny-input-container")
     )
@@ -138,10 +147,6 @@ server <- function(input, output) {
       end <- startEnd[startEnd$layout == 1, c("endX", "endY")]
       end <- as.numeric(end)
       
-      #optimize
-      optim1 <- read.csv("data/optimized1.csv", as.is=T)
-      #optim1 <- 1
-      
     } else { #user-defined landscape
       #get PA,UA shapes
       grid1=expand.grid(x=1:100,y=1:100); grid1$tipo=NA
@@ -168,10 +173,9 @@ server <- function(input, output) {
         end=as.numeric(uc[2,1:2])
       }
       
-      #optimize
-      optim1=1 #...
     }
     
+    #get distance of each plot to urban centers
     dist=numeric()
     for (i in 1:nrow(uc)){
       x2=(grid1$x-uc$x[i])^2
@@ -180,15 +184,25 @@ server <- function(input, output) {
     }
     grid1$dist_uc=apply(dist,1,min)
     
-    L <- list(optim1, grid1, start, end, uc)
+    #get dist to road
+    #need road data...
+    
+    #L <- list(optim1, grid1, start, end, uc)
+    L <- list(grid1, start, end, uc) #should get start, end from uc?
   })
   
+  #reactive to landscape function?
   outList <- reactive({
-    optim1 <- landscapeList()[[1]]
-    grid1 <- landscapeList()[[2]]
-    start <- landscapeList()[[3]]
-    end <- landscapeList()[[4]]
-    uc <- landscapeList()[[5]]
+    #optim1 <- landscapeList()[[1]]
+    #grid1 <- landscapeList()[[2]]
+    #start <- landscapeList()[[3]]
+    #end <- landscapeList()[[4]]
+    #uc <- landscapeList()[[5]]
+    
+    grid1 <- landscapeList()[[1]]
+    start <- landscapeList()[[2]]
+    end <- landscapeList()[[3]]
+    uc <- landscapeList()[[4]]
     
     #If input is empty or non numeric, make them zero
     road.cost=check.input(input$road.cost) #per length of road
@@ -199,6 +213,12 @@ server <- function(input, output) {
     str.coords <- user.coords <- data.frame(x=c(start[1],end[1]),y=c(start[2],end[2]))
     user.grid <- grid1
     
+    #define optim here!! move inside tipo==optimized
+    #optim1 <- read.csv("data/optimized1.csv", as.is=T)
+    optim1 <- optim.route(grid1,uc,coef1) #return df with all road midpoint options
+    head(optim1) #takes a while...
+    
+    #get road data
     if (input$tipo=='user-defined'){
       #create user coordinates
       x=as.numeric(unlist(strsplit(input$x,split=',')))
@@ -212,8 +232,10 @@ server <- function(input, output) {
         forest.cost*optim1$d.ua +
         road.cost*optim1$l.road
       ind=which(cost==min(cost))[1]
-      x=unlist(optim1[ind,c('x1','x2','x3')])
-      y=unlist(optim1[ind,c('y1','y2','y3')])
+      #x=unlist(optim1[ind,c('x1','x2','x3')])
+      #y=unlist(optim1[ind,c('y1','y2','y3')])
+      x=unlist(optim1[ind,'x'])
+      y=unlist(optim1[ind,'y'])
       user.coords=data.frame(x=c(start[1],x,end[1]),y=c(start[2],y,end[2]))
     }
     
