@@ -40,12 +40,29 @@ optim.route=function(grid1,uc,coef1){
   return(midpoint) #returns optimal midpoint
 }
 
-#define landscape
+#define landscape as circle
 define.landscape=function(grid1,PA.coords,UA.coords){
-  condPA=as.vector(pnt.in.poly(grid1[,1:2],PA.coords)[3]==1)
-  condUA=as.vector(pnt.in.poly(grid1[,1:2],UA.coords)[3]==1)
+  #get distance from each plot to center of PA
+  condUA=rep(NA,nrow(grid1));condPA=rep(NA,nrow(grid1))
+  for(i in 1:nrow(grid1)){
+    #UA
+    x2=(grid1$x[i]-UA.coords$x)^2
+    y2=(grid1$y[i]-UA.coords$y)^2
+    condUA[i]=sqrt(x2+y2)<UA.coords$r #inside circle if less than radius
+    
+    #PA
+    x2=(grid1$x[i]-PA.coords$x)^2
+    y2=(grid1$y[i]-PA.coords$y)^2
+    condPA[i]=sqrt(x2+y2)<PA.coords$r
+  }
+  
   grid1$tipo=ifelse(condPA,"PA",ifelse(condUA,"Forest","Pasture"))
   return(grid1$tipo)
+  
+  #condPA=as.vector(pnt.in.poly(grid1[,1:2],PA.coords)[3]==1)
+  #condUA=as.vector(pnt.in.poly(grid1[,1:2],UA.coords)[3]==1)
+  #grid1$tipo=ifelse(condPA,"PA",ifelse(condUA,"Forest","Pasture"))
+  #return(grid1$tipo)
 }
 
 #get nearest distance

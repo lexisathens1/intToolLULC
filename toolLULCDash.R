@@ -4,9 +4,18 @@ rm(list=ls(all=TRUE))
 library(shiny)
 library(shinydashboard)
 library(ggplot2)
+library(SDMTools) #for point in polygon function
 library(microbenchmark) #for profiling
 
-setwd("~/Documents/UF/Valle Lab/Amazon Simulation/intToolLULC")
+#packages needed for shiny deployment
+library(rsconnect) #for deployment to web browser
+library(doParallel)
+library(doSNOW)
+library(foreach)
+library(iterators)
+library(snow)
+
+#setwd("~/Documents/UF/Valle Lab/Amazon Simulation/intToolLULC")
 source('tool functions.R')
 tmp=read.csv('data/glm table.csv',as.is=T)
 coef1=tmp[,'Estimate']
@@ -25,29 +34,29 @@ ui <- dashboardPage(
     conditionalPanel(
       condition = "input.landscape == 'user-defined'",
       fluidRow(
-        column(6,
-               textInput("UC1", label="UC1 coords", value='20,20',placeholder='x,y')
+        column(width=6,offset=0,style='padding:2px;',
+               textInput("UC1", label="UC1 center", value='10,10',placeholder='x,y')
         ),
-        column(6,
-               textInput("UC2", label="UC2 coords", value='20,90',placeholder='x,y')
+        column(width=6,offset=0,style='padding:2px;',
+               textInput("UC2", label="UC2 center", value='90,90',placeholder='x,y')
         )
       ), #end urban center (UC) fluidRow
       fluidRow(
-        column(6,
-               textInput("PAx", label="PA x coords", value='0,40,40,0',placeholder='0-100')
+        column(width=6,offset=0,style='padding:2px;',
+               textInput("UAc", label="UA center", value='50,50',placeholder='x,y')
         ),
-        column(6,
-               textInput("PAy", label="PA y coords", value='80,80,30,30',placeholder='0-100')
+        column(width=6,offset=0,style='padding:2px;',
+               textInput("UAr", label="UA radius", value='40',placeholder='0-50')
         )
-      ), #end PA fluidRow
+      ), #end UA fluidRow
       fluidRow(
-        column(6,
-               textInput("UAx", label="UA x coords", value='40,90,40',placeholder='0-100')
+        column(width=6,offset=0,style='padding:2px;',
+               textInput("PAc", label="PA center", value='50,50',placeholder='x,y')
         ),
-        column(6,
-               textInput("UAy", label="UA y coords", value='80,80,30',placeholder='0-100')
+        column(width=6,offset=0,style='padding:2px;',
+               textInput("PAr", label="PA radius", value='20',placeholder='0-50')
         )
-      ) #end UA fluidRow
+      ) #end PA fluidRow
     ), #end condPanel
     textInput("road.cost", label="Road cost (per km)", value=1),
     textInput("pa.cost", label="Cost of deforesting PA (per 1 km2 pixel)", value='1'),
@@ -148,17 +157,22 @@ server <- function(input, output) {
       end <- as.numeric(end)
       
     } else { #user-defined landscape
+      
+      
+      
+      
+      #-----------------
       #get PA,UA shapes
       grid1=expand.grid(x=1:100,y=1:100); grid1$tipo=NA
-      PAx=as.numeric(unlist(strsplit(input$PAx,split=',')))
-      PAy=as.numeric(unlist(strsplit(input$PAy,split=',')))
-      if (length(PAx)==length(PAy)){
-        PA.coords=data.frame(PAx=PAx,PAy=PAy)
+      PAc=as.numeric(unlist(strsplit(input$PAc,split=',')))
+      PAr=as.numeric(unlist(strsplit(input$PAr,split=',')))
+      if (length(PAc)==2 & length(PAr)==1){
+        PA.coords=data.frame(x=PAc[1],y=PAc[2],r=PAr)
       }
-      UAx=as.numeric(unlist(strsplit(input$UAx,split=',')))
-      UAy=as.numeric(unlist(strsplit(input$UAy,split=',')))
-      if (length(UAx)==length(UAy)){
-        UA.coords=data.frame(UAx=UAx,UAy=UAy)
+      UAc=as.numeric(unlist(strsplit(input$UAc,split=',')))
+      UAr=as.numeric(unlist(strsplit(input$UAr,split=',')))
+      if (length(UAc)==2 & length(UAr)==1){
+        UA.coords=data.frame(x=UAc[1],y=UAc[2],r=UAr)
       }
       grid1$tipo=define.landscape(grid1,PA.coords,UA.coords)
       
@@ -216,7 +230,7 @@ server <- function(input, output) {
     #define optim here!! move inside tipo==optimized
     #optim1 <- read.csv("data/optimized1.csv", as.is=T)
     optim1 <- optim.route(grid1,uc,coef1) #return df with all road midpoint options
-    head(optim1) #takes a while...
+    #head(optim1) #takes a while...
     
     #get road data
     if (input$tipo=='user-defined'){
