@@ -4,16 +4,16 @@ rm(list=ls(all=TRUE))
 library(shiny)
 library(shinydashboard)
 library(ggplot2)
-library(SDMTools) #for point in polygon function
 library(microbenchmark) #for profiling
 
 #packages needed for shiny deployment
 library(rsconnect) #for deployment to web browser
-library(doParallel)
-library(doSNOW)
-library(foreach)
-library(iterators)
-library(snow)
+#library(doParallel)
+#library(doSNOW)
+#library(foreach)
+#library(iterators)
+#library(snow)
+#library(GenSA)
 
 #setwd("~/Documents/UF/Valle Lab/Amazon Simulation/intToolLULC")
 source('tool functions.R')
@@ -63,9 +63,10 @@ ui <- dashboardPage(
     textInput("forest.cost", label="Cost of deforesting forested UA (per 1 km2 pixel)", value='1'),
     sliderInput("protect", label="Protective effect of PA in reducing deforestation (%)", 
                 min=0, max=100, value=30, step=0.5, ticks=T),
-    radioButtons(inputId = "tipo", 
+    radioButtons(inputId = "tipo",
                  label = "Road layout:", 
-                 choices = c('straight line', 'user-defined','optimized'),
+                 choices = c('straight line', 'user-defined', 
+                             'optimized'),
                  selected='straight line'),
     conditionalPanel(
       condition = "input.tipo == 'user-defined'",
@@ -77,8 +78,6 @@ ui <- dashboardPage(
                textInput("y", label="y coords", value='20,90',placeholder='0-100')
         )
       ), #end road fluidRow
-      #textInput("x", label="x coordinates", value='50,50',placeholder='0-100'),
-      #textInput("y", label="y coordinates", value='20,90',placeholder='0-100'),
       div("Use commas to specify more than one coordinate (e.g. 3.75, 5.25)", 
           class="form-group shiny-input-container")
     )
@@ -146,10 +145,9 @@ server <- function(input, output) {
       grid1 <- read.csv("data/grid1.csv", as.is=T)
       
       #get urban center coords
-      uc=read.csv('data/uc.csv')
-      uc=uc[uc$landscape==1,]
+      uc1=read.csv('data/uc.csv')
+      uc=uc1[uc1$landscape==1,]
       
-      #get rid of this later
       startEnd <- read.csv('data/startEnd.csv')
       start <- startEnd[startEnd$layout == 1, c("startX", "startY")]
       start <- as.numeric(start)
@@ -157,11 +155,6 @@ server <- function(input, output) {
       end <- as.numeric(end)
       
     } else { #user-defined landscape
-      
-      
-      
-      
-      #-----------------
       #get PA,UA shapes
       grid1=expand.grid(x=1:100,y=1:100); grid1$tipo=NA
       PAc=as.numeric(unlist(strsplit(input$PAc,split=',')))
@@ -186,7 +179,6 @@ server <- function(input, output) {
         start=as.numeric(uc[1,1:2])
         end=as.numeric(uc[2,1:2])
       }
-      
     }
     
     #get distance of each plot to urban centers
@@ -198,8 +190,6 @@ server <- function(input, output) {
     }
     grid1$dist_uc=apply(dist,1,min)
     
-    #get dist to road
-    #need road data...
     
     #L <- list(optim1, grid1, start, end, uc)
     L <- list(grid1, start, end, uc) #should get start, end from uc?
@@ -207,12 +197,6 @@ server <- function(input, output) {
   
   #reactive to landscape function?
   outList <- reactive({
-    #optim1 <- landscapeList()[[1]]
-    #grid1 <- landscapeList()[[2]]
-    #start <- landscapeList()[[3]]
-    #end <- landscapeList()[[4]]
-    #uc <- landscapeList()[[5]]
-    
     grid1 <- landscapeList()[[1]]
     start <- landscapeList()[[2]]
     end <- landscapeList()[[3]]
@@ -227,11 +211,6 @@ server <- function(input, output) {
     str.coords <- user.coords <- data.frame(x=c(start[1],end[1]),y=c(start[2],end[2]))
     user.grid <- grid1
     
-    #define optim here!! move inside tipo==optimized
-    #optim1 <- read.csv("data/optimized1.csv", as.is=T)
-    optim1 <- optim.route(grid1,uc,coef1) #return df with all road midpoint options
-    #head(optim1) #takes a while...
-    
     #get road data
     if (input$tipo=='user-defined'){
       #create user coordinates
@@ -242,30 +221,20 @@ server <- function(input, output) {
       }
     }
     if (input$tipo=='optimized'){
+      optim1 <- read.csv("data/optimized1.csv", as.is=T) #read route df for default landscape
       cost=pa.cost*(1-protect)*optim1$d.pa +
         forest.cost*optim1$d.ua +
         road.cost*optim1$l.road
       ind=which(cost==min(cost))[1]
-      #x=unlist(optim1[ind,c('x1','x2','x3')])
-      #y=unlist(optim1[ind,c('y1','y2','y3')])
-      x=unlist(optim1[ind,'x'])
-      y=unlist(optim1[ind,'y'])
+      x=unlist(optim1[ind,c('x1','x2','x3')])
+      y=unlist(optim1[ind,c('y1','y2','y3')])
       user.coords=data.frame(x=c(start[1],x,end[1]),y=c(start[2],y,end[2]))
     }
     
-    #get nearest distance
-    user.grid$dist_road=get.dist(user.coords, user.grid)
-    
-    #predict deforestation
-    tmp=with(user.grid, exp(coef1['(Intercept)']+
-                              coef1['dist_road']*dist_road+
-                              coef1['dist_uc']*dist_uc+
-                              coef1['dist_road:dist_uc']*dist_road*dist_uc))
-    user.grid$prob=def.prob(user.grid, coef1)
-    
-    #get length of road
-    user.length <- get.length(user.coords)
-    
+    user.length=get.length(user.coords) #get length of road
+    user.grid$dist_road=get.dist(user.coords, user.grid) #get nearest distance
+    user.grid$prob=def.prob(user.grid, coef1) #deforestation prob of grid
+
     #calculate expected cost
     ecost=get.cost(user.grid, road.cost, pa.cost, forest.cost, protect, user.length)
     
@@ -275,12 +244,12 @@ server <- function(input, output) {
     
     #get prob.cor (this helps displaying deforestation probability)
     cond=user.grid$tipo%in%c('UA','PA')
-    user.grid2=user.grid[cond,]
+    user.grid2=user.grid[cond,] #df of UA,PA plots only
     cond=user.grid2$tipo=='PA'
     user.grid2$prob[cond]=user.grid2$prob[cond]*(1-protect)
     prob.thresh=0.1
     cond=user.grid2$prob>prob.thresh
-    user.grid2=user.grid2[cond,]
+    user.grid2=user.grid2[cond,] #df of plots w prob>0.1 & apply protective effect
     
     #relabel LC type for plotting
     user.grid$tipo <- factor(user.grid$tipo, levels = c("PA", "UA", "Pasture"),
